@@ -1,0 +1,100 @@
+#!/bin/bash
+
+data_size="1GB"
+file_path="data_2.log"  # 파일 경로를 지정합니다.
+new_month=$(date +%m)
+if [[ ${data_size} =~ ^([0-9.]+)([A-Za-z]+)$ ]]; then
+    number="${BASH_REMATCH[1]}"
+    unit="${BASH_REMATCH[2]}"
+
+    if [ -e "$file_path" ]; then
+        # 파일이 존재하는 경우 기존 데이터를 읽어옵니다.
+        existing_data=$(cat "$file_path")
+
+        existing_months=$(awk 'NR == 1' <<< "$existing_data")
+        existing_data=$(awk 'NR == 2' <<< "$existing_data")
+
+        # 기존 데이터가 존재하는 경우에만 데이터를 업데이트합니다.
+        if [ -n "$existing_months" ] && [ -n "$existing_data" ]; then
+            updated_months="$existing_months, '${new_month}'"
+            updated_data="$existing_data, $number"
+        else
+            updated_months="'${new_month}'"
+            updated_data="$number"
+        fi
+
+        updated_data_arr="${updated_months}\n${updated_data}"
+
+        echo -e "$updated_data_arr" > "$file_path"
+
+    else
+        # 파일이 존재하지 않으면 새로운 파일을 생성합니다.
+        cat <<EOF > "${file_path}"
+'${new_month}'
+${number}
+EOF
+    fi
+fi
+
+echo "${unit}"
+
+# 파일에서 월 정보 가져오기
+month=$(awk 'NR == 1' "${file_path}")
+
+# 파일에서 데이터 가져오기
+data=$(awk 'NR == 2' "${file_path}")
+
+
+
+
+
+cat <<EOF > out.html
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <div>
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <script>
+    const jsonData = {
+      labels: [${month}],
+      datasets: [{
+        label: '# Data & Index size (GB)',
+        data: [${data}],
+        borderWidth: 1
+      }]
+    };
+
+    function drawChart() {
+      const ctx = document.getElementById('myChart');
+      new Chart(ctx, {
+        type: 'bar',
+        data: jsonData,
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    drawChart();
+  </script>
+</body>
+
+</html>
+
+EOF
