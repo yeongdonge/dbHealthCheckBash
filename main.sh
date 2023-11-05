@@ -314,7 +314,7 @@ check_recommended_value() { ## 첫 번쨰 파라미터는 현재 값, 두 번째
 
     recommended_value=${2}
 
-    if [ "-" == "${3}" ]
+    if [ -z "${current_value}" ]
         then
             result="양호"
     else
@@ -328,7 +328,7 @@ check_recommended_value() { ## 첫 번쨰 파라미터는 현재 값, 두 번째
             fi
         ;;
         "up" | "UP")
-            if (( $(echo "$current_value >= $recommended_value" | bc -l) ))
+            if (( $(echo "$current_value >= $recommended_value" | bc -l) )) 
             then
                 result="양호"
             else
@@ -658,16 +658,16 @@ cat <<EOF > "${result_path}/${html_path}"
                 </div>
                 <div class='content'>
                     <div>
-                        <div>${innodb_buffer_pool_hit_rate}</div>
-                        <div>${key_buffer_hit_rate}</div>
-                        <div>${thread_cache_miss_rate}</div>
+                        <div>90% 이상</div>
+                        <div>90% 이상</div>
+                        <div>10% 이하</div>
                     </div>
                 </div>
                 <div class='content'>
                     <div>
-                        <div>99.95%</div>
-                        <div>-%</div>
-                        <div>12.16%</div>
+                        <div>${innodb_buffer_pool_hit_rate}</div>
+                        <div>${key_buffer_hit_rate}</div>
+                        <div>${thread_cache_miss_rate}</div>
                     </div>
                 </div>
                 <div class='content'>
@@ -687,14 +687,14 @@ cat <<EOF > "${result_path}/${html_path}"
             <div class='container' style='margin-top: 0px;'>
                 <span class='content'>Connection Miss Rate</span>
                 <span class='content'>Connection Miss Rate</span>
-                <span class='content'>10% 이하</span>
+                <span class='content'>1% 이하</span>
                 <span class='content'>${aborted_connects}</span>
                 <span class='content' id='result'>$(check_recommended_value ${aborted_connects} 1 down)</span>
             </div>
             <div class='container' style='margin-top: 0px;'>
                 <span class='content'>Created Tmp</span>
                 <span class='content'>Created tmp disk tables</span>
-                <span class='content'>10% 미만</span>
+                <span class='content'>10% 이하</span>
                 <span class='content'>${tmp_disk_rate}</span>
                 <span class='content' id='result'>$(check_recommended_value ${tmp_disk_rate} 10 down)</span>
             </div>
