@@ -738,7 +738,7 @@ cat <<EOF > "${result_path}/${html_path}"
                 <div class='content'>
                     <div id='result'>양호</div>
                     <div id='result'>양호</div>
-                    <div id='result'>주의</div>
+                    <div id='result'>양호</div>
                     <div id='result'>양호</div>
                     <div id='result'>$(check_recommended_value_2 ${innodb_status_message})</div>
                     <div id='result'>$(check_recommended_value_2 ${server_type})</div>
