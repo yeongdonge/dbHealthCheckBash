@@ -139,9 +139,16 @@ get_cpu_model() {
     echo ${cpu_model}
 }
 
+get_disk_usage_info() {
+    disk_total=$(df -h $1 | awk 'NR==2 {print $2}')
+    disk_used=$(df -h $1 | awk 'NR==2 {print $3}')
+    disk_usage=$(df -h $1 | awk 'NR==2 {print $5}')
+    echo "${disk_used}/${disk_total} ${disk_usage}"
+}
+
 get_disk_usage() {
-    disk_usage=$(df $1 | awk 'NR==2 {print $5}')
-    echo ${disk_usage}
+    disk_usage=$(df -h $1 | awk 'NR==2 {print $5}')
+    echo "${disk_usage}"
 }
 
 get_innodb_data_file_size() {
@@ -312,7 +319,7 @@ check_recommended_value() { ## 첫 번쨰 파라미터는 현재 값, 두 번째
     current_value=$(echo "${1}" | sed -E 's/[^0-9.]+//g')
     # current_value=$(echo "${1}" | sed -E 's/^[^0-9]*([0-9]+(\.[0-9]+)?).*$/\1/')
 
-    recommended_value=${2}
+    recommended_value="${2}"
 
     if [ -z "${current_value}" ]
         then
@@ -340,7 +347,7 @@ check_recommended_value() { ## 첫 번쨰 파라미터는 현재 값, 두 번째
     esac
     fi
 
-    echo ${result}
+    echo "${result}"
 }
 
 check_recommended_value_2() { ## 데드락 등 숫자가 아닌 문자열 형식의 결과값의 경우, 첫 번째 파라미터는 현재 값
@@ -459,11 +466,17 @@ datadir=$(get_sql_result 'select @@datadir')
 binary_log=$(get_sql_result 'select @@log_bin_basename')
 error_log=$(get_sql_result 'select @@log_error')
 version=$(get_sql_result 'select version()')
+version_comment=$(get_sql_result 'select @@version_comment')
+version_detail=$(echo ${version_comment} | awk '{print $1}')
 slow_query_log=$(get_sql_result 'select @@slow_query_log_file')
 data_index_size=$(convert_size $(get_sql_result 'select sum(index_length+data_length) from information_schema.tables'))
 schema_of_global_status=$(get_sql_result "select case when cnt = 2 and perf = 1 then 'performance_schema' when cnt = 2 and perf = 0 then 'information_schema' else (select table_schema from information_schema.tables where table_name like '%global_status%' and table_schema <> 'sys') end from (select count(*) cnt , @@performance_schema as perf from  information_schema.tables where table_name like '%global_status%' and table_schema <> 'sys') as main")
 innodb_data_home_dir=$(get_sql_result "select @@innodb_data_home_dir")
 innodb_data_file_path=$(get_sql_result "select @@innodb_data_file_path")
+innodb_buffer_pool_size=$(get_sql_result "select @@innodb_buffer_pool_size")
+key_buffer_size=$(get_sql_result "select @@key_buffer_size")
+converted_innodb_buffer_pool_size=$(convert_size ${innodb_buffer_pool_size})
+converted_key_buffer_size=$(convert_size ${key_buffer_size})
 innodb_buffer_pool_hit_rate=$(get_sql_result "select round(100-(b.variable_value/(a.variable_value + b.variable_value)) * 100,2)  from ${schema_of_global_status}.global_status a, ${schema_of_global_status}.global_status b where a.variable_name='innodb_buffer_pool_read_requests' and b.variable_name = 'innodb_buffer_pool_reads'")% 
 key_buffer_hit_rate=$(is_enabled_key_buffer $(get_sql_result "select round(100-(b.variable_value/(a.variable_value + b.variable_value)) * 100,2)  from ${schema_of_global_status}.global_status a, ${schema_of_global_status}.global_status b where a.variable_name='key_read_requests' and b.variable_name = 'key_reads'"))% 
 thread_cache_miss_rate=$(get_sql_result "select round(b.variable_value / a.variable_value * 100,2)  from ${schema_of_global_status}.global_status a, ${schema_of_global_status}.global_status b where a.variable_name='connections' and b.variable_name = 'threads_created'")%
@@ -505,7 +518,11 @@ graph_data=${optimize_chart[1]}
 #
 os_ver=$(get_os_ver)
 disk_usage=$(get_disk_usage ${datadir})
+disk_usage_info=$(get_disk_usage_info ${datadir})
 mem_total=$(convert_memory $(get_total_mem) "GB")
+mem_origin=$(echo $(get_total_mem)*1024 | bc)
+mem_origin_divid_2=$(echo ${mem_origin}/2 | bc)
+mem_origin_divid_4=$(echo ${mem_origin}/4 | bc)
 cpu_model=$(get_cpu_model)
 memory_usage=$(get_memory_usage)
 
@@ -515,6 +532,8 @@ memory_usage=$(get_memory_usage)
 #
 ####################################################################
 #
+
+echo "===========================${server_type}====================================="
 
 ####################################################################
 #
@@ -533,14 +552,14 @@ cat <<EOF > "${result_path}/${html_path}"
 </head>
 
 <body style='width: 100%; margin: auto;'>
-    <p style='text-align: center; font-size: 2em; font-weight: 1000; margin-bottom: 0.5em;'>유지보수 점검 확인서</p>
+    <p style='text-align: center; font-size: 2em; font-weight: 1000; margin-bottom: 0.5em;'>${version_detail} 유지보수 점검 확인서</p>
     <div style='overflow: auto;'>
-        <span style='float: left;'>SITE : ${customer}</span>
-        <span style='float: right;''>엔지니어 : ${engineer} (인)</span>
+        <span style='float: left; font-size: 15px;'>SITE : ${customer}</span>
+        <span style='float: right; font-size: 15px;'>엔지니어 : ${engineer} (인)</span>
     </div>
     <div style=' overflow: auto;'>
-            <span style='float: left'>DATE : ${yyyy_mm_dd_today}</span>
-            <span style='float: right;'>담당자 : ${manager} (인)</span>
+            <span style='float: left; font-size: 15px;'>DATE : ${yyyy_mm_dd_today}</span>
+            <span style='float: right; font-size: 15px;'>담당자 : ${manager} (인)</span>
     </div>
     <div>
         <div class='container' style='margin-top: 10px;'>
@@ -591,7 +610,7 @@ cat <<EOF > "${result_path}/${html_path}"
                 <span class='content'>OS</span>
                 <span class='content'>Disk Usage</span>
                 <span class='content'>80% 이하</span>
-                <span class='content'>${disk_usage}</span>
+                <span class='content'>${disk_usage_info}</span>
                 <span class='content' id='result'>$(check_recommended_value ${disk_usage} 80 down)</span>
             </div>
             <div class='container' style='margin-top: 0px;'>
@@ -637,12 +656,36 @@ cat <<EOF > "${result_path}/${html_path}"
                 <span class='content'>${innodb_data_file_size}</span>
                 <span class='content' id='result'>양호</span>
             </div>
-            <div class='container' style='margin-top: 0px;'>
-                <span class='content'>Memory Usage</span>
-                <span class='content'>메모리 사용률</span>
-                <span class='content'>80% 이하</span>
-                <span class='content'>${memory_usage}</span>
-                <span class='content' id='result'>$(check_recommended_value ${memory_usage} 80 down)</span>
+            <div class='container'>
+                <div class='content' ;>
+                    <div>　</div>
+                    <div>Memory Usage</div>
+                    <div>　</div>
+                </div>
+                <div class='content'>
+                    <div>메모리 사용률</div>
+                    <div>InnoDB buffer pool size</div>
+                    <div>Key buffer size</div>
+                </div>
+                <div class='content'>
+                    <div>
+                        <div>80% 이하</div>
+                        <div>total memory 50%</div>
+                        <div>total memory 25%</div>
+                    </div>
+                </div>
+                <div class='content'>
+                    <div>
+                        <div>${memory_usage}</div>
+                        <div>${converted_innodb_buffer_pool_size}</div>
+                        <div>${converted_key_buffer_size}</div>
+                    </div>
+                </div>
+                <div class='content'>
+                    <div id='result'>$(check_recommended_value ${memory_usage} 80 down)</div>
+                    <div id='result'>$(check_recommended_value ${innodb_buffer_pool_size} ${mem_origin_divid_2} down)</div>
+                    <div id='result'>$(check_recommended_value ${key_buffer_size} ${mem_origin_divid_4} down)</div>
+                </div>
             </div>
 
             <div class='container'>
@@ -717,7 +760,7 @@ cat <<EOF > "${result_path}/${html_path}"
                 </div>
                 <div class='content'>
                     <div>
-                        <div>N/A</div>
+                        <div>360 Days</div>
                         <div>N/A</div>
                         <div>N/A</div>
                         <div>N/A</div>
@@ -736,10 +779,10 @@ cat <<EOF > "${result_path}/${html_path}"
                     </div>
                 </div>
                 <div class='content'>
-                    <div id='result'>양호</div>
-                    <div id='result'>양호</div>
-                    <div id='result'>양호</div>
-                    <div id='result'>양호</div>
+                    <div id='result'>$(check_recommended_value ${uptime} 31104000 down)</div>
+                    <div id='result'>-</div>
+                    <div id='result'>-</div>
+                    <div id='result'>-</div>
                     <div id='result'>$(check_recommended_value_2 ${innodb_status_message})</div>
                     <div id='result'>$(check_recommended_value_2 ${server_type})</div>
                 </div>
@@ -766,8 +809,8 @@ cat <<EOF > "${result_path}/${html_path}"
                     </div>
                 </div>
                 <div class='content'>
-                    <div id='result'>양호</div>
-                    <div id='result'>양호</div>
+                    <div id='result'>-</div>
+                    <div id='result'>-</div>
                 </div>
             </div>
             <div class='container'>
@@ -796,9 +839,9 @@ cat <<EOF > "${result_path}/${html_path}"
                     </div>
                 </div>
                 <div class='content'>
-                    <div id='result'>양호</div>
-                    <div id='result'>양호</div>
-                    <div id='result'>양호</div>
+                    <div id='result'>-</div>
+                    <div id='result'>-</div>
+                    <div id='result'>-</div>
                 </div>
             </div>
             <div style='background-color: #DAEEF3; text-align: center; border: solid 0.1em black;'>특이사항</div>
@@ -928,6 +971,8 @@ cat <<EOF > "${result_path}/${result_file}"
 
     ▪ ibdata Size : ${innodb_data_file_size}
 
+    ▪ InnoDB Buffer Pool Size : ${converted_innodb_buffer_pool_size}
+    ▪ Key Buffer Size : ${converted_key_buffer_size}
     ▪ Hit rate
         Innodb Buffer Pool hit rate : ${innodb_buffer_pool_hit_rate}
         Key Buffer hit rate : ${key_buffer_hit_rate}
