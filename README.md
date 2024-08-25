@@ -5,8 +5,8 @@
 
 ---
 ## _Supported DBMS_
->>### MySQL (Grater than 5.5)
->>### MariaDB (Grater than 10.1)
+>>### MySQL (Greater than 5.5)
+>>### MariaDB (Greater than 10.1)
 기타 버전에서 검증되지 않음
 
 ---
